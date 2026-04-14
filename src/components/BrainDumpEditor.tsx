@@ -252,11 +252,9 @@ export const BrainDumpEditor: React.FC<BrainDumpEditorProps> = ({ blocks, onChan
             onChange={(e) => handleChange(e, idx)}
             onKeyDown={(e) => handleKeyDown(e, idx)}
             className="memo-input"
-            placeholder={idx === 0 ? "디자인 시스템 리팩토링 계획 작성" : ""}
           />
         </li>
       ))}
     </ul>
   );
 };
-

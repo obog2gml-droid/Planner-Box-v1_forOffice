@@ -97,9 +97,17 @@ export const TimeBox: React.FC<TimeBoxProps> = ({ tasks, setTasks, printMode = n
     const source = tasks.find((task) => task.id === id);
     if (!source) return false;
 
+    const isScheduleUpdate =
+      updates.dayOfWeek !== undefined || updates.startTime !== undefined || updates.duration !== undefined;
+
+    if (!isScheduleUpdate) {
+      setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, ...updates } : task)));
+      return true;
+    }
+
     const day = Math.max(0, Math.min(4, updates.dayOfWeek ?? source.dayOfWeek));
-    const start = updates.startTime ?? source.startTime;
-    const duration = Math.max(0.5, updates.duration ?? source.duration);
+    const start = Math.round((updates.startTime ?? source.startTime) * 4) / 4;
+    const duration = Math.max(0.5, Math.round((updates.duration ?? source.duration) * 4) / 4);
     const end = start + duration;
 
     if (start < START_HOUR || end > END_HOUR) return false;
@@ -111,7 +119,11 @@ export const TimeBox: React.FC<TimeBoxProps> = ({ tasks, setTasks, printMode = n
     });
 
     if (!collidingTask) {
-      setTasks((prev) => prev.map((task) => (task.id === id ? { ...task, ...updates, dayOfWeek: day } : task)));
+      setTasks((prev) =>
+        prev.map((task) =>
+          task.id === id ? { ...task, ...updates, dayOfWeek: day, startTime: start, duration } : task
+        )
+      );
       return true;
     }
 
@@ -184,6 +196,7 @@ export const TimeBox: React.FC<TimeBoxProps> = ({ tasks, setTasks, printMode = n
     const newTask: Task = {
       id: crypto.randomUUID(),
       title: "",
+      description: "",
       dayOfWeek,
       startTime,
       duration,
@@ -284,6 +297,7 @@ function normalizeTask(task: Task): Task {
 
   return {
     ...task,
+    description: typeof task.description === "string" ? task.description : "",
     dayOfWeek,
     startTime,
     duration,
@@ -296,6 +310,7 @@ function areTasksEqual(a: Task[], b: Task[]) {
     if (
       a[i].id !== b[i].id ||
       a[i].title !== b[i].title ||
+      a[i].description !== b[i].description ||
       a[i].dayOfWeek !== b[i].dayOfWeek ||
       a[i].startTime !== b[i].startTime ||
       a[i].duration !== b[i].duration ||

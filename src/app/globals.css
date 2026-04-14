@@ -162,7 +162,7 @@ body {
 }
 
 .goal-input::placeholder {
-  color: rgba(34, 34, 34, 0.22);
+  color: rgba(34, 34, 34, 0.18);
 }
 
 .dump-section {
@@ -265,10 +265,6 @@ body {
   line-height: 1.65;
   resize: none;
   overflow: hidden;
-}
-
-.memo-input::placeholder {
-  color: var(--text-3);
 }
 
 .memo-check {
@@ -632,6 +628,7 @@ body {
   gap: 4px;
   width: 100%;
   min-width: 0;
+  height: 100%;
 }
 
 .task.missed {
@@ -642,15 +639,19 @@ body {
 }
 
 .task.missed .t-title,
-.task.missed .t-time {
+.task.missed .t-time,
+.task.missed .t-desc {
   color: var(--text-4);
   text-decoration: line-through;
 }
 
 .t-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: inherit;
+  display: block;
+  flex-shrink: 0;
+  line-height: 1.32;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -658,18 +659,19 @@ body {
 }
 
 .timetable.print-mode .t-title {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .t-time {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: inherit;
   opacity: 0.82;
+  flex-shrink: 0;
 }
 
 .timetable.print-mode .t-time {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .task-title-input,
@@ -685,22 +687,114 @@ body {
 }
 
 .task-title-input {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .task-time-input {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
+}
+
+.t-desc {
+  font-size: 12px;
+  font-weight: 500;
+  color: inherit;
+  opacity: 0.88;
+  line-height: 1.35;
+  flex-shrink: 0;
+  white-space: pre-wrap;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.t-desc.t-desc-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.t-desc-accent {
+  display: block;
+  flex-shrink: 0;
+  width: 34px;
+  height: 2px;
+  margin-top: 2px;
+  border-radius: 999px;
+  background: var(--task-border);
+  opacity: 0.78;
+}
+
+.timetable.print-mode .t-desc {
+  font-size: 11px;
+}
+
+.task-edit-zone {
+  flex: 1;
+  min-height: 8px;
+}
+
+.task-desc-input {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  padding: 4px 5px;
+  font-family: inherit;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  resize: none;
+  overflow-y: auto;
+  min-height: 40px;
+  max-height: 68px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.task-desc-input:not(:focus) {
+  background: transparent;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.task-desc-input:focus {
+  border-color: var(--task-border);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.task.missed .task-desc-input {
+  color: var(--text-4);
+  text-decoration: line-through;
+  border-color: var(--text-4);
 }
 
 .task-controls {
   position: absolute;
-  top: 4px;
+  top: 10px;
   right: 4px;
   display: flex;
   gap: 4px;
   z-index: 30;
+}
+
+.task.compact {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.task.compact .task-inner {
+  justify-content: center;
+  gap: 0;
+}
+
+.task.compact .t-title {
+  line-height: 1.25;
+}
+
+.task.compact .task-controls {
+  top: 12px;
 }
 
 .task-control {

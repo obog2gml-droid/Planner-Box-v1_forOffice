@@ -225,6 +225,7 @@ function normalizeTasks(rawTasks: Task[]) {
 
       return {
         ...task,
+        description: typeof task.description === "string" ? task.description : "",
         dayOfWeek: Math.max(0, Math.min(4, Math.round(task.dayOfWeek || 0))),
         startTime,
         duration,
