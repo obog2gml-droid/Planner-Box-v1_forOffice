@@ -39,12 +39,28 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   const [title, setTitle] = useState(task.title);
   const [isEditingTime, setIsEditingTime] = useState(false);
   const [timeStr, setTimeStr] = useState("");
+  const [descriptionDraft, setDescriptionDraft] = useState(task.description);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   const x = task.dayOfWeek * columnWidth + 2;
   const y = (task.startTime - startHour) * hourHeight + 1;
   const width = Math.max(columnWidth - 4, 80);
   const height = Math.max(task.duration * hourHeight - 2, hourHeight * 0.5 - 2);
+  const hideTime = task.duration <= 0.75 && !isEditingTime;
+  const hideDescription = task.duration <= 1 && !isEditingDescription;
+  const isCompactLayout = hideTime && hideDescription;
   const displayTimeStr = `${formatTime(task.startTime)} – ${formatTime(task.startTime + task.duration)}`;
+  const descLineClamp = useMemo(() => {
+    const descLineHeight = printMode ? 15 : 17;
+    const verticalPadding = printMode ? 12 : 16;
+    const titleHeight = printMode ? 18 : 20;
+    const timeHeight = hideTime ? 0 : printMode ? 14 : 16;
+    const accentHeight = 6;
+    const interItemGap = hideTime ? 8 : 12;
+    const reserved = verticalPadding + titleHeight + timeHeight + accentHeight + interItemGap;
+    const availableHeight = Math.max(descLineHeight, height - reserved);
+    return Math.max(1, Math.floor(availableHeight / descLineHeight));
+  }, [height, hideTime, printMode]);
 
   const postItStyle = useMemo<React.CSSProperties>(() => {
     const hash = [...task.id].reduce((acc, char) => acc + char.charCodeAt(0), 0) + task.dayOfWeek;
@@ -69,10 +85,13 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   };
 
   const handleDragStop = (_e: unknown, d: { x: number; y: number }) => {
-    let day = Math.round(d.x / columnWidth);
+    let day = Math.floor((d.x + width / 2 - 2) / columnWidth);
     day = Math.max(0, Math.min(4, day));
 
-    const newStart = startHour + Math.round(d.y / snapStep) * (snapStep / hourHeight);
+    const snappedY = Math.round((d.y - 1) / snapStep) * snapStep;
+    const newStartRaw = startHour + snappedY / hourHeight;
+    const maxStart = endHour - task.duration;
+    const newStart = Math.max(startHour, Math.min(maxStart, Math.round(newStartRaw * 4) / 4));
     const ok = onUpdate(task.id, { dayOfWeek: day, startTime: newStart });
     if (!ok) forceSnapBack();
   };
@@ -88,7 +107,10 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
     let duration = resizedHeight / hourHeight;
     duration = Math.max(0.5, Math.round(duration / 0.25) * 0.25);
 
-    const newStart = startHour + Math.round(position.y / snapStep) * (snapStep / hourHeight);
+    const snappedY = Math.round((position.y - 1) / snapStep) * snapStep;
+    const newStartRaw = startHour + snappedY / hourHeight;
+    const maxStart = endHour - duration;
+    const newStart = Math.max(startHour, Math.min(maxStart, Math.round(newStartRaw * 4) / 4));
     const ok = onUpdate(task.id, { startTime: newStart, duration });
     if (!ok) forceSnapBack();
   };
@@ -122,8 +144,34 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
     }
   };
 
+  const finalizeDescription = () => {
+    const nextDescription = descriptionDraft;
+    setIsEditingDescription(false);
+    onUpdate(task.id, { description: nextDescription });
+  };
+
+  const openDescriptionEditor = () => {
+    if (printMode) return;
+    setDescriptionDraft(task.description);
+    setIsEditingDescription(true);
+  };
+
   const content = (
-    <div className="task-inner">
+    <div
+      className="task-inner"
+      onDoubleClick={(e) => {
+        if (printMode || isEditingTitle || isEditingTime || isEditingDescription || hideDescription) return;
+        const target = e.target as HTMLElement;
+        if (
+          target.closest(
+            ".t-title, .t-time, .task-title-input, .task-time-input, .task-desc-input, .task-controls, .task-control"
+          )
+        ) {
+          return;
+        }
+        openDescriptionEditor();
+      }}
+    >
       {isEditingTitle ? (
         <input
           autoFocus
@@ -138,7 +186,8 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       ) : (
         <span
           className="t-title"
-          onDoubleClick={() => {
+          onDoubleClick={(e) => {
+            e.stopPropagation();
             if (printMode) return;
             setTitle(task.title);
             setIsEditingTitle(true);
@@ -159,23 +208,80 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
           onPointerDown={(e) => e.stopPropagation()}
         />
       ) : (
-        <span
-          className="t-time"
-          onDoubleClick={() => {
-            if (printMode) return;
-            setTimeStr(displayTimeStr);
-            setIsEditingTime(true);
-          }}
-        >
-          {displayTimeStr}
-        </span>
+        !hideTime ? (
+          <span
+            className="t-time"
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              if (printMode) return;
+              setTimeStr(displayTimeStr);
+              setIsEditingTime(true);
+            }}
+          >
+            {displayTimeStr}
+          </span>
+        ) : null
       )}
+
+      {!hideDescription ? (
+        printMode ? (
+          <>
+            <span className="t-desc-accent" aria-hidden />
+            {task.description ? <span className="t-desc">{task.description}</span> : null}
+          </>
+        ) : (
+          <>
+            <span className="t-desc-accent" aria-hidden />
+            {isEditingDescription ? (
+              <textarea
+                autoFocus
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                onBlur={finalizeDescription}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return;
+
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault();
+                    const target = e.currentTarget;
+                    const selectionStart = target.selectionStart ?? descriptionDraft.length;
+                    const selectionEnd = target.selectionEnd ?? selectionStart;
+                    const next =
+                      descriptionDraft.slice(0, selectionStart) + "\n" + descriptionDraft.slice(selectionEnd);
+                    setDescriptionDraft(next);
+                    requestAnimationFrame(() => {
+                      target.selectionStart = selectionStart + 1;
+                      target.selectionEnd = selectionStart + 1;
+                    });
+                    return;
+                  }
+
+                  if (e.key === "Enter" && !e.metaKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="task-desc-input"
+                onPointerDown={(e) => e.stopPropagation()}
+                rows={2}
+                maxLength={180}
+              />
+            ) : task.description ? (
+              <span className="t-desc t-desc-clamped" style={{ WebkitLineClamp: descLineClamp } as React.CSSProperties}>
+                {task.description}
+              </span>
+            ) : null}
+          </>
+        )
+      ) : null}
+
+      {!hideDescription && !isEditingDescription ? <div className="task-edit-zone" aria-hidden /> : null}
     </div>
   );
 
   if (printMode) {
     return (
-      <div className={`task ${task.isMissed ? "missed" : ""}`} style={postItStyle}>
+      <div className={`task ${task.isMissed ? "missed" : ""} ${isCompactLayout ? "compact" : ""}`} style={postItStyle}>
         {content}
       </div>
     );
@@ -186,7 +292,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       ref={(node) => {
         rndRef.current = node;
       }}
-      className={`task task-live ${task.isMissed ? "missed" : ""}`}
+      className={`task task-live ${task.isMissed ? "missed" : ""} ${isCompactLayout ? "compact" : ""}`}
       bounds="parent"
       position={{ x, y }}
       size={{ width, height }}
@@ -206,7 +312,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       }}
       resizeGrid={[1, snapStep]}
       dragGrid={[1, snapStep]}
-      disableDragging={isEditingTitle || isEditingTime}
+      disableDragging={isEditingTitle || isEditingTime || isEditingDescription}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
