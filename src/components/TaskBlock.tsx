@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { Task } from "@/lib/types";
+import { Palette } from "lucide-react";
 
 interface TaskBlockProps {
   task: Task;
@@ -41,6 +42,8 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   const [timeStr, setTimeStr] = useState("");
   const [descriptionDraft, setDescriptionDraft] = useState(task.description);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isDraggingOrResizing, setIsDraggingOrResizing] = useState(false);
+  const [showColorPopover, setShowColorPopover] = useState(false);
 
   const x = task.dayOfWeek * columnWidth + 2;
   const y = (task.startTime - startHour) * hourHeight + 1;
@@ -63,8 +66,14 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   }, [height, hideTime, printMode]);
 
   const postItStyle = useMemo<React.CSSProperties>(() => {
-    const hash = [...task.id].reduce((acc, char) => acc + char.charCodeAt(0), 0) + task.dayOfWeek;
-    const palette = POST_IT_COLORS[Math.abs(hash) % POST_IT_COLORS.length];
+    let palette = POST_IT_COLORS[0];
+    const colorIdx = parseInt(task.color, 10);
+    if (!isNaN(colorIdx) && colorIdx >= 0 && colorIdx < POST_IT_COLORS.length) {
+      palette = POST_IT_COLORS[colorIdx];
+    } else {
+      const hash = [...task.id].reduce((acc, char) => acc + char.charCodeAt(0), 0) + task.dayOfWeek;
+      palette = POST_IT_COLORS[Math.abs(hash) % POST_IT_COLORS.length];
+    }
 
     return {
       "--task-bg": palette.bg,
@@ -74,7 +83,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       "--s": task.startTime - startHour,
       "--d": task.duration,
     } as React.CSSProperties;
-  }, [task.dayOfWeek, task.id, task.startTime, task.duration, startHour]);
+  }, [task.dayOfWeek, task.id, task.startTime, task.duration, startHour, task.color]);
 
   const snapStep = hourHeight / 4;
 
@@ -117,11 +126,13 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
 
   const finalizeTitle = () => {
     setIsEditingTitle(false);
+    setShowColorPopover(false);
     onUpdate(task.id, { title: title.trim() });
   };
 
   const finalizeTime = () => {
     setIsEditingTime(false);
+    setShowColorPopover(false);
     const parsed = parseTimeRange(timeStr);
     if (!parsed) {
       setTimeStr(displayTimeStr);
@@ -147,6 +158,7 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
   const finalizeDescription = () => {
     const nextDescription = descriptionDraft;
     setIsEditingDescription(false);
+    setShowColorPopover(false);
     onUpdate(task.id, { description: nextDescription });
   };
 
@@ -276,6 +288,58 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       ) : null}
 
       {!hideDescription && !isEditingDescription ? <div className="task-edit-zone" aria-hidden /> : null}
+
+      {(isEditingTitle || isEditingTime || isEditingDescription) && (
+        <div
+          className="task-color-picker-trigger"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+          }}
+        >
+          <button
+            type="button"
+            className="color-picker-btn"
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+            }}
+            onClick={() => setShowColorPopover(!showColorPopover)}
+            title="색상 변경"
+          >
+            <Palette size={14} />
+          </button>
+          {showColorPopover && (
+            <div className="color-popover">
+              {POST_IT_COLORS.map((color, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  className={`color-dot ${task.color === idx.toString() ? "active" : ""}`}
+                  style={{ backgroundColor: color.bg, borderColor: color.border }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                  }}
+                  onClick={() => {
+                    onUpdate(task.id, { color: idx.toString() });
+                    setShowColorPopover(false);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -292,14 +356,22 @@ export const TaskBlock: React.FC<TaskBlockProps> = ({
       ref={(node) => {
         rndRef.current = node;
       }}
-      className={`task task-live ${task.isMissed ? "missed" : ""} ${isCompactLayout ? "compact" : ""}`}
+      className={`task task-live ${task.isMissed ? "missed" : ""} ${isCompactLayout ? "compact" : ""} ${isDraggingOrResizing ? "dragging" : ""}`}
       bounds="parent"
       position={{ x, y }}
       size={{ width, height }}
       style={postItStyle}
       minHeight={hourHeight * 0.5}
-      onDragStop={handleDragStop}
-      onResizeStop={handleResizeStop}
+      onDragStart={() => setIsDraggingOrResizing(true)}
+      onDragStop={(e, d) => {
+        setIsDraggingOrResizing(false);
+        handleDragStop(e, d);
+      }}
+      onResizeStart={() => setIsDraggingOrResizing(true)}
+      onResizeStop={(e, dir, ref, delta, position) => {
+        setIsDraggingOrResizing(false);
+        handleResizeStop(e, dir, ref, delta, position);
+      }}
       enableResizing={{
         top: true,
         right: false,

@@ -10,6 +10,8 @@ interface SidebarProps {
   setBig3: (val: string[]) => void;
   onOpenArchive: () => void;
   onOpenPdf: () => void;
+  viewingArchiveKey: string | null;
+  onReturnToCurrent: () => void;
 }
 
 const BIG3_PLACEHOLDERS = [
@@ -25,6 +27,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setBig3,
   onOpenArchive,
   onOpenPdf,
+  viewingArchiveKey,
+  onReturnToCurrent,
 }) => {
   const handleBig3Change = (index: number, value: string) => {
     const next = [...big3];
@@ -57,13 +61,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </section>
 
       <div className="sidebar-footer">
-        <button type="button" className="btn outline sm" onClick={onOpenArchive}>
-          기록 보관함
+        {viewingArchiveKey && (
+          <button
+            type="button"
+            className="btn outline sm"
+            onClick={onReturnToCurrent}
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              backgroundColor: '#fffbeb',
+              borderColor: '#fef3c7',
+              color: '#b45309',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '6px 10px',
+            }}
+            title="현재 주로 돌아가기"
+          >
+            🏠 현재 주
+          </button>
+        )}
+        <button type="button" className="btn outline sm" onClick={onOpenArchive} style={{ fontSize: '1.16rem' }}>
+          🗄️
         </button>
-        <button type="button" className="btn filled sm" onClick={onOpenPdf}>
-          PDF 내보내기
+        <button type="button" className="btn filled sm" onClick={onOpenPdf} style={{ fontSize: '1.16rem' }}>
+          🖨️
         </button>
       </div>
     </>
   );
 };
+

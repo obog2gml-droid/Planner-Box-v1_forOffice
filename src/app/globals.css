@@ -582,12 +582,20 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  overflow: hidden;
+  overflow: visible;
   z-index: 10;
   cursor: grab;
   color: var(--task-text);
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.28);
-  transition: box-shadow 0.15s ease, filter 0.15s ease;
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+              width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+              height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.15s ease,
+              filter 0.15s ease;
+}
+
+.task.dragging {
+  transition: none !important;
 }
 
 .timetable.print-mode .task {
@@ -629,6 +637,69 @@ body {
   width: 100%;
   min-width: 0;
   height: 100%;
+  position: relative;
+}
+
+.task-color-picker-trigger {
+  position: absolute;
+  bottom: -32px;
+  right: 0;
+  z-index: 50;
+}
+
+.color-picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  color: var(--task-text);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  transition: background 0.15s ease, transform 0.15s ease;
+  padding: 0;
+}
+
+.color-picker-btn:hover {
+  background: #ffffff;
+  transform: scale(1.05);
+}
+
+.color-popover {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  display: flex;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid var(--border-mid);
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 60;
+}
+
+.color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  padding: 0;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.active {
+  border-color: #292929;
+  transform: scale(1.1);
 }
 
 .task.missed {

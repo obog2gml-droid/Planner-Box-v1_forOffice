@@ -9,7 +9,7 @@ import { TimeBox } from "@/components/TimeBox";
 import { ArchiveModal } from "@/components/ArchiveModal";
 import { DumpBlock } from "@/components/BrainDumpEditor";
 import { Task } from "@/lib/types";
-import { getCurrentWeekKey } from "@/lib/dateUtils";
+import { getCurrentWeekKey, getDefaultTitleFromWeekKey } from "@/lib/dateUtils";
 
 interface ArchiveEntry {
   tasks: Task[];
@@ -35,6 +35,7 @@ export default function Home() {
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [printTarget, setPrintTarget] = useState<PrintTarget | null>(null);
+  const [viewingArchiveKey, setViewingArchiveKey] = useState<string | null>(null);
 
   const contentAllRef = useRef<HTMLDivElement>(null);
   const contentTableRef = useRef<HTMLDivElement>(null);
@@ -105,23 +106,58 @@ export default function Home() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    localStorage.setItem("timebox-tasks-v2", JSON.stringify(tasks));
-    localStorage.setItem("timebox-title-v2", title);
-    localStorage.setItem("timebox-subtitle-v2", subtitle);
-    localStorage.setItem("timebox-brain-v2", JSON.stringify(brainDump));
-    localStorage.setItem("timebox-big3-v2", JSON.stringify(big3));
-  }, [tasks, title, subtitle, brainDump, big3, isLoaded]);
+    if (viewingArchiveKey === null) {
+      const savedTasks = localStorage.getItem("timebox-tasks-v2");
+      const savedTitle = localStorage.getItem("timebox-title-v2");
+      const savedSubtitle = localStorage.getItem("timebox-subtitle-v2");
+      const savedBrain = localStorage.getItem("timebox-brain-v2");
+      const savedBig3 = localStorage.getItem("timebox-big3-v2");
 
-  const handleRestore = (archive: ArchiveEntry) => {
-    if (!confirm("과거의 기록을 현재로 불러오시겠습니까? 현재 작성 중인 내용은 사라집니다.")) {
-      return;
+      setTasks(normalizeTasks(parseJSON<Task[]>(savedTasks, [])));
+      setBig3(parseJSON<string[]>(savedBig3, EMPTY_BIG3));
+      setBrainDump(normalizeDumpBlocks(parseJSON<LegacyDumpBlock[]>(savedBrain, [])));
+      setSubtitle(savedSubtitle || "·");
+      setTitle(savedTitle || getDefaultTitle());
+    } else {
+      const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
+      const archive = archives[viewingArchiveKey];
+      if (archive) {
+        setTasks(normalizeTasks(archive.tasks || []));
+        setBrainDump(normalizeDumpBlocks(archive.brainDump || []));
+        setBig3(archive.big3 || EMPTY_BIG3);
+        setTitle(archive.title || getDefaultTitleFromWeekKey(viewingArchiveKey));
+        setSubtitle(archive.subtitle || "·");
+      }
     }
+  }, [viewingArchiveKey, isLoaded]);
 
-    setTasks(normalizeTasks(archive.tasks || []));
-    setBrainDump(normalizeDumpBlocks(archive.brainDump || []));
-    setBig3(archive.big3 || EMPTY_BIG3);
-    setTitle(archive.title || getDefaultTitle());
-    setSubtitle(archive.subtitle || "·");
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    if (viewingArchiveKey === null) {
+      localStorage.setItem("timebox-tasks-v2", JSON.stringify(tasks));
+      localStorage.setItem("timebox-title-v2", title);
+      localStorage.setItem("timebox-subtitle-v2", subtitle);
+      localStorage.setItem("timebox-brain-v2", JSON.stringify(brainDump));
+      localStorage.setItem("timebox-big3-v2", JSON.stringify(big3));
+    } else {
+      const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
+      if (archives[viewingArchiveKey]) {
+        archives[viewingArchiveKey] = {
+          ...archives[viewingArchiveKey],
+          tasks,
+          title,
+          subtitle,
+          brainDump,
+          big3
+        };
+        localStorage.setItem("timebox-archives", JSON.stringify(archives));
+      }
+    }
+  }, [tasks, title, subtitle, brainDump, big3, isLoaded, viewingArchiveKey]);
+
+  const handleRestore = (key: string) => {
+    setViewingArchiveKey(key);
     setShowArchiveModal(false);
   };
 
@@ -143,8 +179,44 @@ export default function Home() {
   return (
     <>
       {showArchiveModal ? (
-        <ArchiveModal onClose={() => setShowArchiveModal(false)} onRestore={handleRestore} />
+        <ArchiveModal
+          onClose={() => setShowArchiveModal(false)}
+          onRestore={handleRestore}
+          onDeleteArchive={(key) => {
+            if (viewingArchiveKey === key) {
+              setViewingArchiveKey(null);
+            }
+          }}
+          viewingArchiveKey={viewingArchiveKey}
+        />
       ) : null}
+
+      {viewingArchiveKey && (
+        <div className="archive-view-banner" style={{
+          backgroundColor: '#fffbeb',
+          borderBottom: '1px solid #fef3c7',
+          padding: '12px 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          color: '#b45309',
+          fontSize: '13px',
+          fontWeight: 600,
+          fontFamily: 'inherit'
+        }}>
+          <div>
+            ⚠️ 이전 기록({getDefaultTitleFromWeekKey(viewingArchiveKey)})을 조회하고 있습니다. 현재 주 플랜은 보존되며 수정사항은 이 보관 기록에 자동 저장됩니다.
+          </div>
+          <button type="button" className="btn outline sm" onClick={() => setViewingArchiveKey(null)} style={{
+            backgroundColor: '#ffffff',
+            borderColor: '#f59e0b',
+            color: '#b45309',
+            cursor: 'pointer'
+          }}>
+            현재 주로 돌아가기
+          </button>
+        </div>
+      )}
 
       <main
         ref={contentAllRef}
@@ -160,6 +232,8 @@ export default function Home() {
             setBig3={setBig3}
             onOpenArchive={() => setShowArchiveModal(true)}
             onOpenPdf={() => setShowPdfPopup(true)}
+            viewingArchiveKey={viewingArchiveKey}
+            onReturnToCurrent={() => setViewingArchiveKey(null)}
           />
         </aside>
 
@@ -177,7 +251,7 @@ export default function Home() {
           <div className="modal-backdrop" onClick={() => setShowPdfPopup(false)} />
           <div className="modal-card pdf-card">
             <div className="modal-header">
-              <h2>PDF 내보내기</h2>
+              <h2>🖨️ PDF 내보내기</h2>
               <button type="button" className="btn text" onClick={() => setShowPdfPopup(false)}>
                 닫기
               </button>
