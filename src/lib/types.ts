@@ -8,3 +8,10 @@ export interface Task {
   color: string;
   isMissed?: boolean;
 }
+
+export interface Consultant {
+  id: string;
+  name: string;
+  colorIndex: number; // index in POST_IT_COLORS
+}
+

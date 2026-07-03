@@ -178,7 +178,7 @@ body {
 
 .memo-editor {
   flex: 1;
-  min-height: 280px;
+  min-height: 200px;
   overflow-y: auto;
   overflow-x: hidden;
   background-image: none;
@@ -1058,3 +1058,67 @@ body {
     opacity: 1;
   }
 }
+
+/* Sidebar action buttons */
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.sidebar-action-btn:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.goal-item-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.goal-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.goal-item-row:hover .goal-delete-btn {
+  opacity: 1;
+}
+
+.goal-delete-btn:hover {
+  color: #dc2626;
+}
+
+/* Sketchbook Print Styles */
+@media print {
+  .sketchbook-bar,
+  .sketchbook-modal-overlay {
+    display: none !important;
+  }
+
+  #pdf-sketchbook-all.layout,
+  #pdf-sketchbook-table.office-table-wrap {
+    page-break-inside: avoid;
+    break-inside: avoid-page;
+    overflow: hidden;
+  }
+}
+

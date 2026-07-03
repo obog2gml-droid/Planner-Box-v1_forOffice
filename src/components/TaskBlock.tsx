@@ -21,7 +21,7 @@ const POST_IT_COLORS = [
   { bg: "rgba(255, 209, 75, 0.4)", border: "rgba(184, 124, 7, 0.95)", text: "#2d2207" },
   { bg: "rgba(86, 234, 160, 0.34)", border: "rgba(19, 138, 84, 0.92)", text: "#0d2e20" },
   { bg: "rgba(78, 162, 255, 0.33)", border: "rgba(26, 89, 180, 0.92)", text: "#10203d" },
-  { bg: "rgba(255, 119, 57, 0.34)", border: "rgba(186, 72, 18, 0.95)", text: "#32190e" },
+  { bg: "rgba(244, 114, 208, 0.34)", border: "rgba(219, 39, 119, 0.92)", text: "#4c0519" },
 ];
 
 export const TaskBlock: React.FC<TaskBlockProps> = ({

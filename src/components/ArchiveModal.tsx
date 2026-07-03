@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { DumpBlock } from "@/components/BrainDumpEditor";
 import { Task } from "@/lib/types";
-import { getDefaultTitleFromWeekKey } from "@/lib/dateUtils";
+import { getDefaultTitleFromWeekKey, getMonthLabelFromWeekKey } from "@/lib/dateUtils";
 
 interface ArchiveEntry {
   tasks: Task[];
@@ -70,21 +70,20 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
     });
   }, [archiveKeys, archives, searchQuery]);
 
-  // Group filtered keys by Year
+  // Group filtered keys by Month
   const groupedKeys = useMemo(() => {
     const groups: Record<string, string[]> = {};
     filteredKeys.forEach((key) => {
-      const match = key.match(/^(\d{4})/);
-      const year = match ? `${match[1]}년` : "기타";
-      if (!groups[year]) {
-        groups[year] = [];
+      const monthLabel = getMonthLabelFromWeekKey(key);
+      if (!groups[monthLabel]) {
+        groups[monthLabel] = [];
       }
-      groups[year].push(key);
+      groups[monthLabel].push(key);
     });
     return groups;
   }, [filteredKeys]);
 
-  const sortedYears = useMemo(() => Object.keys(groupedKeys).sort().reverse(), [groupedKeys]);
+  const sortedMonths = useMemo(() => Object.keys(groupedKeys).sort().reverse(), [groupedKeys]);
 
   const removeArchive = (key: string) => {
     if (confirm("정말 이 보관 기록을 삭제하시겠습니까?")) {
@@ -152,8 +151,8 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
           ) : filteredKeys.length === 0 ? (
             <p className="modal-empty">검색 결과와 일치하는 기록이 없습니다.</p>
           ) : (
-            sortedYears.map((year) => (
-              <div key={year} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            sortedMonths.map((month) => (
+              <div key={month} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <h3 style={{
                   fontSize: "11px",
                   color: "var(--text-3)",
@@ -162,9 +161,9 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
                   borderBottom: "1px solid var(--border)",
                   paddingBottom: "4px",
                   margin: 0
-                }}>{year}</h3>
+                }}>{month}</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {groupedKeys[year].map((key) => {
+                  {groupedKeys[month].map((key) => {
                     const archive = archives[key];
                     const defaultTitle = getDefaultTitleFromWeekKey(key);
                     const displayTitle = archive.title || defaultTitle;
