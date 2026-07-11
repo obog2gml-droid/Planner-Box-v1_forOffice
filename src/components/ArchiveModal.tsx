@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { DumpBlock } from "@/components/BrainDumpEditor";
 import { Task } from "@/lib/types";
 import { getDefaultTitleFromWeekKey, getMonthLabelFromWeekKey } from "@/lib/dateUtils";
+import { getStorageItem, setStorageItem } from "@/lib/storage";
 
 interface ArchiveEntry {
   tasks: Task[];
@@ -26,17 +27,13 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
   onDeleteArchive,
   viewingArchiveKey,
 }) => {
-  const [archives, setArchives] = useState<Record<string, ArchiveEntry>>(() => {
-    if (typeof window === "undefined") return {};
-    const raw = window.localStorage.getItem("timebox-archives");
-    if (!raw) return {};
+  const [archives, setArchives] = useState<Record<string, ArchiveEntry>>({});
 
-    try {
-      return JSON.parse(raw) as Record<string, ArchiveEntry>;
-    } catch {
-      return {};
-    }
-  });
+  useEffect(() => {
+    getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {}).then((data) => {
+      setArchives(data);
+    });
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -58,11 +55,11 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
         item?.toLowerCase().includes(query)
       );
       const tasksMatch = archive.tasks?.some(
-        (task: any) =>
+        (task: Task) =>
           task.title?.toLowerCase().includes(query) ||
           task.description?.toLowerCase().includes(query)
       );
-      const brainDumpMatch = archive.brainDump?.some((block: any) =>
+      const brainDumpMatch = archive.brainDump?.some((block: DumpBlock) =>
         block.content?.toLowerCase().includes(query)
       );
 
@@ -85,12 +82,12 @@ export const ArchiveModal: React.FC<ArchiveModalProps> = ({
 
   const sortedMonths = useMemo(() => Object.keys(groupedKeys).sort().reverse(), [groupedKeys]);
 
-  const removeArchive = (key: string) => {
+  const removeArchive = async (key: string) => {
     if (confirm("정말 이 보관 기록을 삭제하시겠습니까?")) {
       const next = { ...archives };
       delete next[key];
       setArchives(next);
-      localStorage.setItem("timebox-archives", JSON.stringify(next));
+      await setStorageItem("timebox-archives", next);
       if (onDeleteArchive) {
         onDeleteArchive(key);
       }

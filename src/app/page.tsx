@@ -10,6 +10,7 @@ import { ArchiveModal } from "@/components/ArchiveModal";
 import { DumpBlock } from "@/components/BrainDumpEditor";
 import { Task, Consultant } from "@/lib/types";
 import { getCurrentWeekKey, getDefaultTitleFromWeekKey } from "@/lib/dateUtils";
+import { runMigration, getStorageItem, setStorageItem } from "@/lib/storage";
 
 interface ArchiveEntry {
   tasks: Task[];
@@ -103,33 +104,36 @@ export default function Home() {
 
   // Load Initial Data
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const currentWeekKey = getCurrentWeekKey();
-      const lastWeekKey = localStorage.getItem("timebox-last-week-v2");
+    const loadData = async () => {
+      // 1. Run migration if needed
+      await runMigration();
 
-      const savedTasks = localStorage.getItem("timebox-tasks-v2");
-      const savedTitle = localStorage.getItem("timebox-title-v2");
-      const savedSubtitle = localStorage.getItem("timebox-subtitle-v2");
-      const savedBrain = localStorage.getItem("timebox-brain-v2");
-      const savedBig3 = localStorage.getItem("timebox-big3-v2");
-      const savedConsultants = localStorage.getItem("timebox-consultants-v2");
-      const savedPoppedMissed = localStorage.getItem("timebox-popped-missed-ids-v2") || localStorage.getItem("timebox-popped-missed-v2"); // check both new and legacy
+      const currentWeekKey = getCurrentWeekKey();
+      const lastWeekKey = await getStorageItem<string | null>("timebox-last-week-v2", null);
+
+      const savedTasks = await getStorageItem<Task[]>("timebox-tasks-v2", []);
+      const savedTitle = await getStorageItem<string>("timebox-title-v2", "");
+      const savedSubtitle = await getStorageItem<string>("timebox-subtitle-v2", "");
+      const savedBrain = await getStorageItem<LegacyDumpBlock[]>("timebox-brain-v2", []);
+      const savedBig3 = await getStorageItem<string[]>("timebox-big3-v2", EMPTY_BIG3);
+      const savedConsultants = await getStorageItem<Consultant[]>("timebox-consultants-v2", []);
+      const savedPoppedMissed = await getStorageItem<string[]>("timebox-popped-missed-ids-v2", []);
 
       if (lastWeekKey && lastWeekKey !== currentWeekKey) {
         // Archive the completed week
         const archiveData: ArchiveEntry = {
-          tasks: parseJSON<Task[]>(savedTasks, []),
-          brainDump: normalizeDumpBlocks(parseJSON<LegacyDumpBlock[]>(savedBrain, [])),
-          big3: parseJSON<string[]>(savedBig3, EMPTY_BIG3),
-          title: savedTitle || "",
-          subtitle: savedSubtitle || "",
-          consultants: parseJSON<Consultant[]>(savedConsultants, []),
-          poppedMissedIds: parseJSON<string[]>(savedPoppedMissed, []),
+          tasks: savedTasks,
+          brainDump: normalizeDumpBlocks(savedBrain),
+          big3: savedBig3,
+          title: savedTitle,
+          subtitle: savedSubtitle,
+          consultants: savedConsultants,
+          poppedMissedIds: savedPoppedMissed,
         };
 
-        const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
+        const archives = await getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {});
         archives[lastWeekKey] = archiveData;
-        localStorage.setItem("timebox-archives", JSON.stringify(archives));
+        await setStorageItem("timebox-archives", archives);
 
         // Reset for the new week
         setTasks([]);
@@ -140,85 +144,93 @@ export default function Home() {
         setSubtitle("·");
       } else {
         // Load current week data
-        setTasks(normalizeTasks(parseJSON<Task[]>(savedTasks, [])));
-        setBig3(parseJSON<string[]>(savedBig3, EMPTY_BIG3));
-        setBrainDump(normalizeDumpBlocks(parseJSON<LegacyDumpBlock[]>(savedBrain, [])));
-        setConsultants(parseJSON<Consultant[]>(savedConsultants, []));
-        setPoppedMissedIds(parseJSON<string[]>(savedPoppedMissed, []));
+        setTasks(normalizeTasks(savedTasks));
+        setBig3(savedBig3);
+        setBrainDump(normalizeDumpBlocks(savedBrain));
+        setConsultants(savedConsultants);
+        setPoppedMissedIds(savedPoppedMissed);
         setSubtitle(savedSubtitle || "·");
       }
 
       setTitle(savedTitle || getDefaultTitle());
-      localStorage.setItem("timebox-last-week-v2", currentWeekKey);
+      await setStorageItem("timebox-last-week-v2", currentWeekKey);
       setIsLoaded(true);
-    }, 0);
+    };
 
-    return () => window.clearTimeout(timer);
+    loadData();
   }, []);
 
   // Handle Archive Viewing vs Current Week
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (viewingArchiveKey === null) {
-      const savedTasks = localStorage.getItem("timebox-tasks-v2");
-      const savedTitle = localStorage.getItem("timebox-title-v2");
-      const savedSubtitle = localStorage.getItem("timebox-subtitle-v2");
-      const savedBrain = localStorage.getItem("timebox-brain-v2");
-      const savedBig3 = localStorage.getItem("timebox-big3-v2");
-      const savedConsultants = localStorage.getItem("timebox-consultants-v2");
-      const savedPoppedMissed = localStorage.getItem("timebox-popped-missed-ids-v2") || localStorage.getItem("timebox-popped-missed-v2");
+    const loadArchiveOrCurrent = async () => {
+      if (viewingArchiveKey === null) {
+        const savedTasks = await getStorageItem<Task[]>("timebox-tasks-v2", []);
+        const savedTitle = await getStorageItem<string>("timebox-title-v2", "");
+        const savedSubtitle = await getStorageItem<string>("timebox-subtitle-v2", "");
+        const savedBrain = await getStorageItem<LegacyDumpBlock[]>("timebox-brain-v2", []);
+        const savedBig3 = await getStorageItem<string[]>("timebox-big3-v2", EMPTY_BIG3);
+        const savedConsultants = await getStorageItem<Consultant[]>("timebox-consultants-v2", []);
+        const savedPoppedMissed = await getStorageItem<string[]>("timebox-popped-missed-ids-v2", []);
 
-      setTasks(normalizeTasks(parseJSON<Task[]>(savedTasks, [])));
-      setBig3(parseJSON<string[]>(savedBig3, EMPTY_BIG3));
-      setBrainDump(normalizeDumpBlocks(parseJSON<LegacyDumpBlock[]>(savedBrain, [])));
-      setConsultants(parseJSON<Consultant[]>(savedConsultants, []));
-      setPoppedMissedIds(parseJSON<string[]>(savedPoppedMissed, []));
-      setSubtitle(savedSubtitle || "·");
-      setTitle(savedTitle || getDefaultTitle());
-    } else {
-      const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
-      const archive = archives[viewingArchiveKey];
-      if (archive) {
-        setTasks(normalizeTasks(archive.tasks || []));
-        setBrainDump(normalizeDumpBlocks(archive.brainDump || []));
-        setBig3(archive.big3 || EMPTY_BIG3);
-        setConsultants(archive.consultants || []);
-        setPoppedMissedIds(archive.poppedMissedIds || archive.poppedMissedTitles || []);
-        setTitle(archive.title || getDefaultTitleFromWeekKey(viewingArchiveKey));
-        setSubtitle(archive.subtitle || "·");
+        setTasks(normalizeTasks(savedTasks));
+        setBig3(savedBig3);
+        setBrainDump(normalizeDumpBlocks(savedBrain));
+        setConsultants(savedConsultants);
+        setPoppedMissedIds(savedPoppedMissed);
+        setSubtitle(savedSubtitle || "·");
+        setTitle(savedTitle || getDefaultTitle());
+      } else {
+        const archives = await getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {});
+        const archive = archives[viewingArchiveKey];
+        if (archive) {
+          setTasks(normalizeTasks(archive.tasks || []));
+          setBrainDump(normalizeDumpBlocks(archive.brainDump || []));
+          setBig3(archive.big3 || EMPTY_BIG3);
+          setConsultants(archive.consultants || []);
+          setPoppedMissedIds(archive.poppedMissedIds || archive.poppedMissedTitles || []);
+          setTitle(archive.title || getDefaultTitleFromWeekKey(viewingArchiveKey));
+          setSubtitle(archive.subtitle || "·");
+        }
       }
-    }
+    };
+
+    loadArchiveOrCurrent();
   }, [viewingArchiveKey, isLoaded]);
 
-  // Sync Current Week Data to LocalStorage
+  // Sync Current Week Data to IndexedDB
   useEffect(() => {
     if (!isLoaded) return;
 
-    if (viewingArchiveKey === null) {
-      localStorage.setItem("timebox-tasks-v2", JSON.stringify(tasks));
-      localStorage.setItem("timebox-title-v2", title);
-      localStorage.setItem("timebox-subtitle-v2", subtitle);
-      localStorage.setItem("timebox-brain-v2", JSON.stringify(brainDump));
-      localStorage.setItem("timebox-big3-v2", JSON.stringify(big3));
-      localStorage.setItem("timebox-consultants-v2", JSON.stringify(consultants));
-      localStorage.setItem("timebox-popped-missed-ids-v2", JSON.stringify(poppedMissedIds));
-    } else {
-      const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
-      if (archives[viewingArchiveKey]) {
-        archives[viewingArchiveKey] = {
-          ...archives[viewingArchiveKey],
-          tasks,
-          title,
-          subtitle,
-          brainDump,
-          big3,
-          consultants,
-          poppedMissedIds,
-        };
-        localStorage.setItem("timebox-archives", JSON.stringify(archives));
+    const syncData = async () => {
+      if (viewingArchiveKey === null) {
+        await setStorageItem("timebox-tasks-v2", tasks);
+        await setStorageItem("timebox-title-v2", title);
+        await setStorageItem("timebox-subtitle-v2", subtitle);
+        await setStorageItem("timebox-brain-v2", brainDump);
+        await setStorageItem("timebox-big3-v2", big3);
+        await setStorageItem("timebox-consultants-v2", consultants);
+        await setStorageItem("timebox-popped-missed-ids-v2", poppedMissedIds);
+      } else {
+        const archives = await getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {});
+        if (archives[viewingArchiveKey]) {
+          archives[viewingArchiveKey] = {
+            ...archives[viewingArchiveKey],
+            tasks,
+            title,
+            subtitle,
+            brainDump,
+            big3,
+            consultants,
+            poppedMissedIds,
+          };
+          await setStorageItem("timebox-archives", archives);
+        }
       }
-    }
+    };
+
+    syncData();
   }, [tasks, title, subtitle, brainDump, big3, consultants, poppedMissedIds, isLoaded, viewingArchiveKey]);
 
   // Sketchbook State Auto-save to session storage (for robustness)
@@ -381,7 +393,7 @@ export default function Home() {
     }
   };
 
-  const handleSaveSketchbookToArchive = () => {
+  const handleSaveSketchbookToArchive = async () => {
     const key = `sketchbook-${format(new Date(), "yyyyMMdd-HHmmss")}`;
     const archiveData: ArchiveEntry = {
       tasks: sketchbookTasks,
@@ -393,14 +405,14 @@ export default function Home() {
       poppedMissedIds: sketchbookPoppedMissedIds,
     };
 
-    const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
+    const archives = await getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {});
     archives[key] = archiveData;
-    localStorage.setItem("timebox-archives", JSON.stringify(archives));
+    await setStorageItem("timebox-archives", archives);
     alert(`보관함에 성공적으로 아카이브되었습니다!\n(키: ${key})`);
   };
 
-  const handleSketchbookRestore = (key: string) => {
-    const archives = parseJSON<Record<string, ArchiveEntry>>(localStorage.getItem("timebox-archives"), {});
+  const handleSketchbookRestore = async (key: string) => {
+    const archives = await getStorageItem<Record<string, ArchiveEntry>>("timebox-archives", {});
     const archive = archives[key];
     if (archive) {
       setSketchbookTasks(normalizeTasks(archive.tasks || []));
